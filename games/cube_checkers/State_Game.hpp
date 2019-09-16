@@ -19,6 +19,7 @@ public:
   void render();
 private:
   void selectPiece();
+  void incrementPiece();
   Tile getTileAtIndex(int i);
   void calcallowedMoves(Player & currentPlayer, Player & otherPlayer);
   void getPotentialJumps();
@@ -28,4 +29,6 @@ private:
   std::vector<Tile> allowedMoves;
   std::vector<Tile> potentialJumps;
   Player player1, player2;
+  bool madeJumps, incrementing;
+  int indexOfMovedPiece;
 };

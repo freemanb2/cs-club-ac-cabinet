@@ -74,7 +74,11 @@ void State_Game::handleEvent(sf::Event e) {
           player1.curTile.index = (player1.curTile.index + 1) % 8 == 0 ? player1.curTile.index - 7 : player1.curTile.index + 1;
           break;
         case sf::Keyboard::F:
-          selectPiece();
+          if (incrementing) {
+            incrementPiece();
+          } else {
+            selectPiece();
+          }
         default:
           break;
       }
@@ -93,7 +97,11 @@ void State_Game::handleEvent(sf::Event e) {
           player2.curTile.index = (player2.curTile.index + 1) % 8 == 0 ? player2.curTile.index - 7 : player2.curTile.index + 1;
           break;
         case sf::Keyboard::H:
-          selectPiece();
+          if (incrementing) {
+            incrementPiece();
+          } else {
+            selectPiece();
+          }
         default:
           break;
       }
@@ -119,12 +127,31 @@ void State_Game::render() {
     tile.setColor(sf::Color(15, 200, 15, 100));
     ctx.window.draw(tile);
   }
-  for (auto & tile : potentialJumps) {
-    tile.setColor(sf::Color(130, 200, 250));
-    ctx.window.draw(tile);
+  if (!incrementing) {
+    for (auto & tile : potentialJumps) {
+      tile.setColor(sf::Color(130, 200, 250));
+      ctx.window.draw(tile);
+    }
   }
   player1.draw(ctx.window);
   player2.draw(ctx.window);
+}
+
+void State_Game::incrementPiece() {
+  Player & currentPlayer = player1.isTurn ? player1 : player2;
+  Player & otherPlayer = player1.isTurn ? player2 : player1;
+  Cube * pieceOnSelectedTile;
+
+  pieceOnSelectedTile = currentPlayer.getPieceOnTile(currentPlayer.curTile);
+
+  std::cout << "tile index: " << currentPlayer.curTile.index << std::endl;
+
+  if(pieceOnSelectedTile && indexOfMovedPiece != currentPlayer.curTile.index && pieceOnSelectedTile->value < 6) {
+    pieceOnSelectedTile->value++;
+    incrementing = false;
+    player1.isTurn = !player1.isTurn;
+    player2.isTurn = !player2.isTurn;
+  }
 }
 
 void State_Game::selectPiece() {
@@ -162,12 +189,18 @@ void State_Game::selectPiece() {
           getPotentialJumpsForTile(currentPlayer.curTile);
         }
 
+        indexOfMovedPiece = currentPlayer.curTile.index;
         currentPlayer.movePiece();
         allowedMoves.clear();
 
         if (potentialJumps.empty()) {
-          player1.isTurn = !player1.isTurn;
-          player2.isTurn = !player2.isTurn;
+          if (madeJumps) {
+            incrementing = false;
+            player1.isTurn = !player1.isTurn;
+            player2.isTurn = !player2.isTurn;
+          } else {
+            incrementing = true;
+          }
         }
 
         break;
@@ -257,6 +290,7 @@ void State_Game::calcallowedMoves(Player & currentPlayer, Player & otherPlayer) 
 }
 
 void State_Game::getPotentialJumps() {
+  madeJumps = false;
   potentialJumps.clear();
 
   Player & currentPlayer = player1.isTurn ? player1 : player2;
@@ -300,6 +334,10 @@ void State_Game::getPotentialJumps() {
         }
       }
     }
+  }
+
+  if (!potentialJumps.empty()) {
+    madeJumps = true;
   }
 }
 
