@@ -11,14 +11,11 @@ find_package(SFML 2.5.1 COMPONENTS system window graphics audio network REQUIRED
 
 #we add the executable of the program
 add_executable(cube_checkers
-Button.cpp		StateMachine.cpp	State_MainMenu.cpp
-Button.hpp		StateMachine.hpp	State_MainMenu.hpp
-Cube.cpp		State_Base.cpp		State_SplashScreen.cpp
-Cube.hpp		State_Base.hpp		State_SplashScreen.hpp
-Game.cpp		State_Game.cpp		Tile.cpp
-Game.hpp		State_Game.hpp		Tile.hpp
-Player.cpp		State_Instructions.cpp	main.cpp
-Player.hpp		State_Instructions.hpp
+Button.cpp              Game.hpp                State_Base.cpp          State_GameOver.hpp      State_SplashScreen.cpp
+Button.hpp              Player.cpp              State_Base.hpp          State_Instructions.cpp  State_SplashScreen.hpp
+Cube.cpp                Player.hpp              State_Game.cpp          State_Instructions.hpp  Tile.cpp
+Cube.hpp                StateMachine.cpp        State_Game.hpp          State_MainMenu.cpp      Tile.hpp
+Game.cpp                StateMachine.hpp        State_GameOver.cpp      State_MainMenu.hpp      main.cpp
 )
 
 target_link_libraries(cube_checkers sfml-system sfml-window sfml-graphics sfml-audio sfml-network sqlite3)

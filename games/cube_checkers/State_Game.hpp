@@ -28,7 +28,7 @@ private:
   std::vector<Tile> board;
   std::vector<Tile> allowedMoves;
   std::vector<Tile> potentialJumps;
-  Player player1, player2;
-  bool madeJumps, incrementing;
+  Player player1, player2, winner;
+  bool madeJumps, incrementing, gameOver;
   int indexOfMovedPiece;
 };

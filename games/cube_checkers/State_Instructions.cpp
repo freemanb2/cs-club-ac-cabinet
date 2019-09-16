@@ -42,6 +42,8 @@ void State_Instructions::handleEvent(sf::Event e) {
   } else if (e.type == sf::Event::KeyPressed) {
     switch (e.key.code) {
       case sf::Keyboard::F:
+        ctx.stateMachine.popState();
+        break;
       case sf::Keyboard::H:
         ctx.stateMachine.popState();
         break;

@@ -2,11 +2,12 @@
 #include <math.h>
 
 #include "State_Game.hpp"
+#include "State_GameOver.hpp"
 #include "Game.hpp"
 #include "Cube.hpp"
 
 State_Game::State_Game(SharedContext & ctx) : State_Base(ctx),
-player1(), player2() {
+player1(), player2(), winner(), gameOver(false) {
 
   sf::Vector2u windowSize = ctx.window.getSize();
   sf::Vector2f tileSize(windowSize.x / 8, windowSize.y / 8);
@@ -110,31 +111,40 @@ void State_Game::handleEvent(sf::Event e) {
 }
 
 void State_Game::update() {
-  sf::Vector2u windowSize = ctx.window.getSize();
-  sf::Vector2f tileSize(windowSize.x / 8, windowSize.y / 8);
+  if(!gameOver) {
+    sf::Vector2u windowSize = ctx.window.getSize();
+    sf::Vector2f tileSize(windowSize.x / 8, windowSize.y / 8);
 
-  getPotentialJumps();
+    getPotentialJumps();
 
-  player1.updatePositionByTileSize(tileSize);
-  player2.updatePositionByTileSize(tileSize);
+    player1.updatePositionByTileSize(tileSize);
+    player2.updatePositionByTileSize(tileSize);
+  } else {
+    Player & currentPlayer = player1.isTurn ? player1 : player2;
+    auto gameOverState = std::make_unique<State_GameOver>(ctx);
+    gameOverState->winnerString = currentPlayer.name + " wins!";
+    ctx.stateMachine.pushState(std::move(gameOverState), true);
+  }
 }
 
 void State_Game::render() {
-  for (auto & tile : board) {
-    ctx.window.draw(tile);
-  }
-  for (auto & tile : allowedMoves) {
-    tile.setColor(sf::Color(15, 200, 15, 100));
-    ctx.window.draw(tile);
-  }
-  if (!incrementing) {
-    for (auto & tile : potentialJumps) {
-      tile.setColor(sf::Color(130, 200, 250));
+  if (!gameOver) {
+    for (auto & tile : board) {
       ctx.window.draw(tile);
     }
+    for (auto & tile : allowedMoves) {
+      tile.setColor(sf::Color(15, 200, 15, 100));
+      ctx.window.draw(tile);
+    }
+    if (!incrementing) {
+      for (auto & tile : potentialJumps) {
+        tile.setColor(sf::Color(130, 200, 250));
+        ctx.window.draw(tile);
+      }
+    }
+    player1.draw(ctx.window);
+    player2.draw(ctx.window);
   }
-  player1.draw(ctx.window);
-  player2.draw(ctx.window);
 }
 
 void State_Game::incrementPiece() {
@@ -144,7 +154,8 @@ void State_Game::incrementPiece() {
 
   pieceOnSelectedTile = currentPlayer.getPieceOnTile(currentPlayer.curTile);
 
-  std::cout << "tile index: " << currentPlayer.curTile.index << std::endl;
+  // View index of tile clicked easily
+  // std::cout << "tile index: " << currentPlayer.curTile.index << std::endl;
 
   if(pieceOnSelectedTile && indexOfMovedPiece != currentPlayer.curTile.index && pieceOnSelectedTile->value < 6) {
     pieceOnSelectedTile->value++;
@@ -160,7 +171,7 @@ void State_Game::selectPiece() {
   Cube * pieceOnSelectedTile;
 
   // leave to view indexes easily
-  std::cout << "tile index: " << currentPlayer.curTile.index << std::endl;
+  // std::cout << "tile index: " << currentPlayer.curTile.index << std::endl;
 
   getPotentialJumps();
 
@@ -193,8 +204,13 @@ void State_Game::selectPiece() {
         currentPlayer.movePiece();
         allowedMoves.clear();
 
+        if (otherPlayer.pieces.size() == 0) {
+          winner = currentPlayer;
+          gameOver = true;
+        }
+
         if (potentialJumps.empty()) {
-          if (madeJumps) {
+          if (madeJumps || currentPlayer.pieces.size() <= 1) {
             incrementing = false;
             player1.isTurn = !player1.isTurn;
             player2.isTurn = !player2.isTurn;
@@ -227,6 +243,7 @@ void State_Game::calcallowedMoves(Player & currentPlayer, Player & otherPlayer) 
     if (initIndex / 8 < 6) { // can check two rows down
       if ((initIndex - 1) % 8 > 0) { // can check two cols left
         if (otherPlayer.getPieceOnTile(getTileAtIndex(initIndex + 7)) &&
+            selectedPieceValue >= otherPlayer.getPieceOnTile(getTileAtIndex(initIndex + 7))->value &&
             !otherPlayer.getPieceOnTile(getTileAtIndex(initIndex + 14)) &&
             !currentPlayer.getPieceOnTile(getTileAtIndex(initIndex + 14))) { // can jump opponent's piece left
           allowedMoves.push_back(getTileAtIndex(initIndex + 14));
@@ -234,6 +251,7 @@ void State_Game::calcallowedMoves(Player & currentPlayer, Player & otherPlayer) 
       }
       if ((initIndex + 2) % 8 > 0) { // can check two cols right
         if (otherPlayer.getPieceOnTile(getTileAtIndex(initIndex + 9)) &&
+            selectedPieceValue >= otherPlayer.getPieceOnTile(getTileAtIndex(initIndex + 9))->value &&
             !otherPlayer.getPieceOnTile(getTileAtIndex(initIndex + 18)) &&
             !currentPlayer.getPieceOnTile(getTileAtIndex(initIndex + 18))) { // can jump opponent's piece right
           allowedMoves.push_back(getTileAtIndex(initIndex + 18));
@@ -259,6 +277,7 @@ void State_Game::calcallowedMoves(Player & currentPlayer, Player & otherPlayer) 
     if (initIndex / 8 > 1) { // can check two rows up
       if ((initIndex - 1) % 8 > 0) { // can check two cols left
         if (otherPlayer.getPieceOnTile(getTileAtIndex(initIndex - 9)) &&
+            selectedPieceValue >= otherPlayer.getPieceOnTile(getTileAtIndex(initIndex - 9))->value &&
             !otherPlayer.getPieceOnTile(getTileAtIndex(initIndex - 18)) &&
             !currentPlayer.getPieceOnTile(getTileAtIndex(initIndex - 18))) { // can jump opponent's piece left
           allowedMoves.push_back(getTileAtIndex(initIndex - 18));
@@ -266,6 +285,7 @@ void State_Game::calcallowedMoves(Player & currentPlayer, Player & otherPlayer) 
       }
       if ((initIndex + 2) % 8 > 0) { // can check two cols right
         if (otherPlayer.getPieceOnTile(getTileAtIndex(initIndex - 7)) &&
+            selectedPieceValue >= otherPlayer.getPieceOnTile(getTileAtIndex(initIndex - 7))->value &&
             !otherPlayer.getPieceOnTile(getTileAtIndex(initIndex - 14)) &&
             !currentPlayer.getPieceOnTile(getTileAtIndex(initIndex - 14))) { // can jump opponent's piece right
           allowedMoves.push_back(getTileAtIndex(initIndex - 14));
@@ -302,6 +322,7 @@ void State_Game::getPotentialJumps() {
       if (initIndex / 8 < 6) { // can check two rows down
         if ((initIndex - 1) % 8 > 0) { // can check two cols left
           if (otherPlayer.getPieceOnTile(getTileAtIndex(initIndex + 7)) &&
+              piece.value >= otherPlayer.getPieceOnTile(getTileAtIndex(initIndex + 7))->value &&
               !otherPlayer.getPieceOnTile(getTileAtIndex(initIndex + 14)) &&
               !currentPlayer.getPieceOnTile(getTileAtIndex(initIndex + 14))) { // can jump opponent's piece left
             potentialJumps.push_back(getTileAtIndex(initIndex));
@@ -309,6 +330,7 @@ void State_Game::getPotentialJumps() {
         }
         if ((initIndex + 2) % 8 > 0) { // can check two cols right
           if (otherPlayer.getPieceOnTile(getTileAtIndex(initIndex + 9)) &&
+              piece.value >= otherPlayer.getPieceOnTile(getTileAtIndex(initIndex + 9))->value &&
               !otherPlayer.getPieceOnTile(getTileAtIndex(initIndex + 18)) &&
               !currentPlayer.getPieceOnTile(getTileAtIndex(initIndex + 18))) { // can jump opponent's piece right
             potentialJumps.push_back(getTileAtIndex(initIndex));
@@ -320,6 +342,7 @@ void State_Game::getPotentialJumps() {
       if (initIndex / 8 > 1) { // can check two rows up
         if ((initIndex - 1) % 8 > 0) { // can check two cols left
           if (otherPlayer.getPieceOnTile(getTileAtIndex(initIndex - 9)) &&
+              piece.value >= otherPlayer.getPieceOnTile(getTileAtIndex(initIndex - 9))->value &&
               !otherPlayer.getPieceOnTile(getTileAtIndex(initIndex - 18)) &&
               !currentPlayer.getPieceOnTile(getTileAtIndex(initIndex - 18))) { // can jump opponent's piece left
             potentialJumps.push_back(getTileAtIndex(initIndex));
@@ -327,6 +350,7 @@ void State_Game::getPotentialJumps() {
         }
         if ((initIndex + 2) % 8 > 0) { // can check two cols right
           if (otherPlayer.getPieceOnTile(getTileAtIndex(initIndex - 7)) &&
+              piece.value >= otherPlayer.getPieceOnTile(getTileAtIndex(initIndex - 7))->value &&
               !otherPlayer.getPieceOnTile(getTileAtIndex(initIndex - 14)) &&
               !currentPlayer.getPieceOnTile(getTileAtIndex(initIndex - 14))) { // can jump opponent's piece right
             potentialJumps.push_back(getTileAtIndex(initIndex));
@@ -352,6 +376,7 @@ void State_Game::getPotentialJumpsForTile(Tile tile) {
     if (initIndex / 8 < 6) { // can check two rows down
       if ((initIndex - 1) % 8 > 0) { // can check two cols left
         if (otherPlayer.getPieceOnTile(getTileAtIndex(initIndex + 7)) &&
+            currentPlayer.selectedPiece->value >= otherPlayer.getPieceOnTile(getTileAtIndex(initIndex + 7))->value &&
             !otherPlayer.getPieceOnTile(getTileAtIndex(initIndex + 14)) &&
             !currentPlayer.getPieceOnTile(getTileAtIndex(initIndex + 14))) { // can jump opponent's piece left
           potentialJumps.push_back(getTileAtIndex(initIndex));
@@ -359,6 +384,7 @@ void State_Game::getPotentialJumpsForTile(Tile tile) {
       }
       if ((initIndex + 2) % 8 > 0) { // can check two cols right
         if (otherPlayer.getPieceOnTile(getTileAtIndex(initIndex + 9)) &&
+            currentPlayer.selectedPiece->value >= otherPlayer.getPieceOnTile(getTileAtIndex(initIndex + 9))->value &&
             !otherPlayer.getPieceOnTile(getTileAtIndex(initIndex + 18)) &&
             !currentPlayer.getPieceOnTile(getTileAtIndex(initIndex + 18))) { // can jump opponent's piece right
           potentialJumps.push_back(getTileAtIndex(initIndex));
@@ -370,6 +396,7 @@ void State_Game::getPotentialJumpsForTile(Tile tile) {
     if (initIndex / 8 > 1) { // can check two rows up
       if ((initIndex - 1) % 8 > 0) { // can check two cols left
         if (otherPlayer.getPieceOnTile(getTileAtIndex(initIndex - 9)) &&
+            currentPlayer.selectedPiece->value >= otherPlayer.getPieceOnTile(getTileAtIndex(initIndex - 9))->value &&
             !otherPlayer.getPieceOnTile(getTileAtIndex(initIndex - 18)) &&
             !currentPlayer.getPieceOnTile(getTileAtIndex(initIndex - 18))) { // can jump opponent's piece left
           potentialJumps.push_back(getTileAtIndex(initIndex));
@@ -377,6 +404,7 @@ void State_Game::getPotentialJumpsForTile(Tile tile) {
       }
       if ((initIndex + 2) % 8 > 0) { // can check two cols right
         if (otherPlayer.getPieceOnTile(getTileAtIndex(initIndex - 7)) &&
+            currentPlayer.selectedPiece->value >= otherPlayer.getPieceOnTile(getTileAtIndex(initIndex - 7))->value &&
             !otherPlayer.getPieceOnTile(getTileAtIndex(initIndex - 14)) &&
             !currentPlayer.getPieceOnTile(getTileAtIndex(initIndex - 14))) { // can jump opponent's piece right
           potentialJumps.push_back(getTileAtIndex(initIndex));
